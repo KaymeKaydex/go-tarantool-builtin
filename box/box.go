@@ -1,6 +1,8 @@
 package box
 
 import (
+	"context"
+
 	"github.com/tarantool/go-tarantool/v2"
 )
 
@@ -25,11 +27,14 @@ func (b *Box) Schema() *Schema {
 
 // Info retrieves the current information of the Tarantool instance.
 // It calls the "box.info" function and parses the result into the Info structure.
-func (b *Box) Info() (Info, error) {
+func (b *Box) Info(ctx context.Context) (Info, error) {
 	var infoResp InfoResponse
 
+	req := NewInfoRequest()
+	req.Context(ctx)
+
 	// Call "box.info" to get instance information from Tarantool.
-	fut := b.conn.Do(NewInfoRequest())
+	fut := b.conn.Do(req)
 
 	// Parse the result into the Info structure.
 	err := fut.GetTyped(&infoResp)
