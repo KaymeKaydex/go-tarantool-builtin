@@ -1,0 +1,96 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: testing
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  all-tests:
+    # We could replace it with ubuntu-latest after fixing the bug:
+    # https://github.com/tarantool/setup-tarantool/issues/37
+    runs-on: ubuntu-20.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        golang:
+          - '1.22'
+          - 'stable'
+        tarantool:
+          - '2.8'
+          - '2.10'
+          - 'master'
+        include:
+          - tarantool: 'master'
+            golang: '1.22'
+            coverage: true
+
+    steps:
+      - name: Clone the connector
+        uses: actions/checkout@v3
+
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/2/installer.sh | sudo bash
+          sudo apt install -y tt
+
+      - name: Setup tt environment
+        run: tt init
+
+      - name: Setup Tarantool ${{ matrix.tarantool }}
+        if: matrix.tarantool != 'master'
+        uses: tarantool/setup-tarantool@v2
+        with:
+          tarantool-version: ${{ matrix.tarantool }}
+
+      - name: Get Tarantool master commit
+        if: matrix.tarantool == 'master'
+        run: |
+          commit_hash=$(git ls-remote https://github.com/tarantool/tarantool.git --branch master | head -c 8)
+          echo "LATEST_COMMIT=${commit_hash}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Cache Tarantool master
+        if: matrix.tarantool == 'master'
+        id: cache-latest
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ github.workspace }}/bin
+            ${{ github.workspace }}/include
+          key: cache-latest-${{ env.LATEST_COMMIT }}
+
+      - name: Setup Tarantool master
+        if: matrix.tarantool == 'master' && steps.cache-latest.outputs.cache-hit != 'true'
+        run: |
+          sudo tt install tarantool master
+
+      - name: Add Tarantool master to PATH
+        if: matrix.tarantool == 'master'
+        run: echo "${GITHUB_WORKSPACE}/bin" >> $GITHUB_PATH
+
+      - name: Setup golang for the connector and tests
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.golang }}
+
+      - name: Run tests
+        run: |
+          export START_PORT=33000
+          export NREPLICASETS=5
+          make test
+
+      - name: Install goveralls
+        if: ${{ matrix.coverage }}
+        run: go install github.com/mattn/goveralls@latest
+
+      - name: Send coverage
+        if: ${{ matrix.coverage }}
+        env:
+          COVERALLS_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: goveralls -coverprofile=coverage.out -service=github

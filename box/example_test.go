@@ -13,21 +13,21 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/KaymeKaydex/go-tarantool-builtin/box"
 	"github.com/tarantool/go-tarantool/v2"
 )
 
 func ExampleBox_Info() {
+	ctx := context.Background()
+
 	dialer := tarantool.NetDialer{
 		Address:  "127.0.0.1:3013",
 		User:     "test",
 		Password: "test",
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+
 	client, err := tarantool.Connect(ctx, dialer, tarantool.Opts{})
-	cancel()
 	if err != nil {
 		log.Fatalf("Failed to connect: %s", err)
 	}

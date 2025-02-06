@@ -47,7 +47,7 @@ func TestBox_Sugar_Info(t *testing.T) {
 	conn, err := tarantool.Connect(ctx, dialer, tarantool.Opts{})
 	require.NoError(t, err)
 
-	info, err := box.New(conn).Info()
+	info, err := box.New(conn).Info(ctx)
 	require.NoError(t, err)
 
 	validateInfo(t, info)
